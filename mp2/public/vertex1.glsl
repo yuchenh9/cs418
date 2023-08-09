@@ -11,8 +11,8 @@ out vec4 vColor;
 void main() {
 
     vColor = color;
-    gl_Position = m * vec4(
-        position.xy*cos(seconds*0.6180339887498949),
+    gl_Position = vec4(
+        position.xy,
         position.zw
     );
     //vColor = color;

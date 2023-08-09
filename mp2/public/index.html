@@ -87,8 +87,12 @@ function setupGeomery(geom,program) {
         count:indices.length,   // out of this many indices overall
         type:gl.UNSIGNED_SHORT, // each index is stored as a Uint16
         vao:triangleArray,  // and this VAO knows which buffers to use
-        Positions:Positions
-        
+        Positions:Positions,
+        boundaries:[[0.2,0.35],[0.2,0.35]],
+        centers:[[-0.45,0],[0.25,0]],
+        directions:[[0.000,0.000],[-0.007,-0.007]],
+        objectlengths:[12,24],
+        objectsnumber:2,
     }
 }
 
@@ -108,23 +112,43 @@ function draw(milliseconds,numberstr) {
 
 
 
-
-    for (let i = 0; i < window["geom1"].Positions.length; i++) {
+    let start_index=0
+    for (let index = 0; index < window["geom1"].objectsnumber; index++) {
         
-        window["geom1"].Positions[i][0]=window["geom1"].Positions[i][0]+0.05*(i);
-        window["geom1"].Positions[i][1]=window["geom1"].Positions[i][1]+0.05*(i);
-        //window["geom1"].Positions[i][2]=window["geom1"].Positions[i][2];
-            
-            
-        //
-        //vertexData[i * 3 + 0] = window["geom"+numberstr].originalXPositions[i] + Math.sin(milliseconds/1000 + i);
-        //vertexData[i * 3 + 1] = window["geom"+numberstr].originalYPositions[i] + Math.cos(milliseconds/1000 + i);
-        //vertexData[i * 3 + 2] = window["geom"+numberstr].originalZPositions[i];
+        let bound=window["geom1"].boundaries[index]
+        let center=window["geom1"].centers[index]
+        let direction=window["geom1"].directions[index]
+
+        for (i=start_index; i < window["geom1"].objectlengths[index]; i++) {
+            //console.log(i)
+            window["geom1"].Positions[i][0]+=window["geom1"].directions[index][0];
+            window["geom1"].Positions[i][1]+=window["geom1"].directions[index][1];
+        }
+        start_index+=window["geom1"].objectlengths[index]
+
+        window["geom1"].centers[index][0]+=window["geom1"].directions[index][0];
+        window["geom1"].centers[index][1]+=window["geom1"].directions[index][1];
+        //console.log(center)
+        if ((center[0]+bound[0]>=1)||(center[0]-bound[0]<=-1)) {
+            //console.log("hhh")
+            direction[0]*=-1;
+        } else if ((center[1]+bound[1]>=1)||(center[1]-bound[1]<=-1)){
+            direction[1]*=-1;
+        }
+    }
+    let horizontal_distance=Math.abs(window["geom1"].centers[0][0]-window["geom1"].centers[1][0])-(window["geom1"].boundaries[0][0]+window["geom1"].boundaries[0][0])
+    let vert_distance=Math.abs(window["geom1"].centers[0][1]-window["geom1"].centers[1][1])-(window["geom1"].boundaries[0][1]+window["geom1"].boundaries[0][1])
+    if(horizontal_distance<=-0.1&&vert_distance<=-0.1){
+        window["geom1"].directions[0][0]*=-1
+        window["geom1"].directions[0][1]*=-1
+        window["geom1"].directions[1][0]*=-1
+        window["geom1"].directions[1][1]*=-1
+        //console.log("hh")
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, window["p1"].buf)
 // and convert the data to a known fixed-sized type
     let f32 = new Float32Array(window["geom1"].Positions.flat())
-    console.log(window["geom1"].Positions)
+    
 // then send that data to the GPU, with a hint that we don't plan to change it very often
     gl.bufferData(gl.ARRAY_BUFFER, f32, gl.DYNAMIC_DRAW)
     
@@ -159,6 +183,7 @@ function draw(milliseconds,numberstr) {
 
 /** Callback for when the radio button selection changes */
 function radioChanged() {
+    gl.clearColor(0.075, 0.16, 0.292, 1)
     let chosen = document.querySelector('input[name="example"]:checked').value
     cancelAnimationFrame(window.pending)
     window.pending = requestAnimationFrame((timestamp) => draw(timestamp, chosen))
@@ -184,6 +209,22 @@ function resizeCanvas() {
 //window.addEventListener('load',setup)
 
 
+function onMouseMove(event) {
+  // Compute the mouse position within the canvas
+  var rect = document.querySelector('canvas').getBoundingClientRect();
+  var mouseX = event.clientX - rect.left;
+  var mouseY = event.clientY - rect.top;
+
+  // Normalize the coordinates to [-1, 1]
+  var normalizedX = (mouseX / canvas.width) * 2 - 1;
+  var normalizedY = (mouseY / canvas.height) * -2 + 1; // Invert Y-axis
+
+  // Update your object properties here based on mouse position
+  // e.g., change the position, rotation, or other properties
+  window["geom1"].directions[0][0] += 0.1*normalizedX;
+  window["geom1"].directions[0][1] += 0.1*normalizedY;
+    console.log(window["geom1"].directions[0][0])
+}
 async function setup(event) {
     resizeCanvas()
     window.gl = document.querySelector('canvas').getContext('webgl2')
@@ -208,6 +249,10 @@ async function setup(event) {
         elem.addEventListener('change', radioChanged)
     })
     radioChanged()
+    console.log(document.querySelector('canvas').getBoundingClientRect())
+    let canvas = document.querySelector('canvas');
+    canvas.addEventListener('mousemove', (e) => onMouseMove(e, canvas), false);
+
     //<br/>
     //<label><input type="radio" name="example" value="1" />Option 2: A solid fill of Illini Blue</label>
     //<br/>
@@ -219,6 +264,7 @@ window.addEventListener('load',setup)
 </script>
 </head>
 <body>
+    <br/>
 <label><input type="radio" name="example" value="1" checked />Option 1: A solid fill of Illini Orange</label>
 
 <canvas width="300" height="300"></canvas>
