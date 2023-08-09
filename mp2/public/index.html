@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>  
+<meta charset="utf-8">
+<title>Copy me: radio buttons and canvas resize</title>
+<script src="math.js"></script>
+<script>
+// This script is long enough it should probably be in its own file; it's inline
+// here simply to make this example easier to share as a single link.
+function compileAndLinkGLSL(vs_source, fs_source,programname) {
+    let vs = gl.createShader(gl.VERTEX_SHADER)
+    gl.shaderSource(vs, vs_source)
+    gl.compileShader(vs)
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(vs))
+        throw Error("Vertex shader compilation failed")
+    }
+
+    let fs = gl.createShader(gl.FRAGMENT_SHADER)
+    gl.shaderSource(fs, fs_source)
+    gl.compileShader(fs)
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(fs))
+        throw Error("Fragment shader compilation failed")
+    }
+
+    window[programname] = gl.createProgram()
+    gl.attachShader(window[programname], vs)
+    gl.attachShader(window[programname], fs)
+    gl.linkProgram(window[programname])
+    if (!gl.getProgramParameter(window[programname], gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(window[programname]))
+        throw Error("Linking failed")
+    }
+}
+function setupGeomery(geom,program) {
+    // a "vertex array object" or VAO records various data provision commands
+    var triangleArray = gl.createVertexArray()
+    gl.bindVertexArray(triangleArray)
+
+    // Object.entries({k1:v1, k2:v2}) returns [[k1,v1],[k2,v2]]
+    // [a, b, c].forEach(func) calls func(a), then func(b), then func(c)
+    Object.entries(geom.attributes).forEach(([name,data]) => {
+        // goal 1: get data from CPU memory to GPU memory 
+        // createBuffer allocates an array of GPU memory
+        let buf = gl.createBuffer()
+        if(program==window["p1"] && name=="position"){
+            window["p1"].buf=buf
+        }
+        // to get data into the array we tell the GPU which buffer to use
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+        // and convert the data to a known fixed-sized type
+        let f32 = new Float32Array(data.flat())
+        // then send that data to the GPU, with a hint that we don't plan to change it very often
+        gl.bufferData(gl.ARRAY_BUFFER, f32, gl.DYNAMIC_DRAW)
+        
+        // goal 2: connect the buffer to an input of the vertex shader
+        // this is done by finding the index of the given input name
+        let loc = gl.getAttribLocation(program, name)
+        // telling the GPU how to parse the bytes of the array
+        gl.vertexAttribPointer(loc, data[0].length, gl.FLOAT, false, 0, 0)
+        // and connecting the currently-used array to the VS input
+        gl.enableVertexAttribArray(loc)
+    })
+    let Positions = geom.attributes.position; // Change 'position' to match the correct attribute name in your code
+    //originalXPositions = [];
+    //originalYPositions = [];
+    //originalZPositions = [];
+//
+    //originalPositions.forEach(position => {
+    //    originalXPositions.push(position[0]);
+    //    originalYPositions.push(position[1]);
+    //    originalZPositions.push(position[2]);
+    //});
+    // We also have to explain how values are connected into shapes.
+    // There are other ways, but we'll use indices into the other arrays
+    var indices = new Uint16Array(geom.triangles.flat())
+    // we'll need a GPU array for the indices too
+    var indexBuffer = gl.createBuffer()
+    // but the GPU puts it in a different "ready" position, one for indices
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+
+    // we return all the bits we'll need to use this work later
+    return {
+        mode:gl.TRIANGLES,      // grab 3 indices per triangle
+        count:indices.length,   // out of this many indices overall
+        type:gl.UNSIGNED_SHORT, // each index is stored as a Uint16
+        vao:triangleArray,  // and this VAO knows which buffers to use
+        Positions:Positions
+        
+    }
+}
+
+
+function draw(milliseconds,numberstr) {
+    gl.clear(gl.COLOR_BUFFER_BIT) 
+    gl.useProgram( window["p"+numberstr])        // pick the shaders
+    let secondsBindPoint = gl.getUniformLocation( window["p"+numberstr], 'seconds')
+    gl.uniform1f(secondsBindPoint, milliseconds/1000)
+    window.v=m4view([1,2,3],[0,0,0],[0,1,0])
+    gl.uniformMatrix4fv(gl.getUniformLocation( window["p"+numberstr], 'm'), false, m4rotX(milliseconds/1000))
+    gl.uniformMatrix4fv(gl.getUniformLocation( window["p"+numberstr], 'p'), false, p)
+    gl.uniformMatrix4fv(gl.getUniformLocation( window["p"+numberstr], 'v'), false, m4mul(v,m4rotY(milliseconds/1000)))
+    gl.uniformMatrix4fv(gl.getUniformLocation( window["p"+numberstr], 't'), false, m4trans(milliseconds/100,milliseconds/100,milliseconds/100))
+
+    gl.bindVertexArray(window["geom"+numberstr].vao)  // and the buffers 
+
+
+
+
+    for (let i = 0; i < window["geom1"].Positions.length; i++) {
+        
+        window["geom1"].Positions[i][0]=window["geom1"].Positions[i][0]+0.05*(i);
+        window["geom1"].Positions[i][1]=window["geom1"].Positions[i][1]+0.05*(i);
+        //window["geom1"].Positions[i][2]=window["geom1"].Positions[i][2];
+            
+            
+        //
+        //vertexData[i * 3 + 0] = window["geom"+numberstr].originalXPositions[i] + Math.sin(milliseconds/1000 + i);
+        //vertexData[i * 3 + 1] = window["geom"+numberstr].originalYPositions[i] + Math.cos(milliseconds/1000 + i);
+        //vertexData[i * 3 + 2] = window["geom"+numberstr].originalZPositions[i];
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, window["p1"].buf)
+// and convert the data to a known fixed-sized type
+    let f32 = new Float32Array(window["geom1"].Positions.flat())
+    console.log(window["geom1"].Positions)
+// then send that data to the GPU, with a hint that we don't plan to change it very often
+    gl.bufferData(gl.ARRAY_BUFFER, f32, gl.DYNAMIC_DRAW)
+    
+    
+
+    gl.drawElements(window["geom"+numberstr].mode, window["geom"+numberstr].count, window["geom"+numberstr].type, 0) // then draw things
+    requestAnimationFrame((timestamp) => draw(timestamp, numberstr))
+}
+/**
+ * Animation callback for the first display. Should be invoked as 
+ * `window.pending = requestAnimationFrame(draw1)`
+ * and invokes that on itself as well; to stop it, call
+ * `cancelAnimationFrame(window.pending)`
+ *
+ * Fills the screen with Illini Orange
+ */
+//function draw3(milliseconds) {
+//    gl.clearColor(1, 0.373, 0.02, 1)
+//    gl.clear(gl.COLOR_BUFFER_BIT)
+//    window.pending = requestAnimationFrame(draw3)
+//}
+///**
+// * Animation callback for the second display. See {draw1} for more.
+// *
+// * Fills the screen with Illini Blue
+// */
+//function draw0() {
+//    gl.clearColor(0.075, 0.16, 0.292, 1)
+//    gl.clear(gl.COLOR_BUFFER_BIT)
+//    window.pending = requestAnimationFrame(draw0)
+//}
+
+/** Callback for when the radio button selection changes */
+function radioChanged() {
+    let chosen = document.querySelector('input[name="example"]:checked').value
+    cancelAnimationFrame(window.pending)
+    window.pending = requestAnimationFrame((timestamp) => draw(timestamp, chosen))
+}
+
+/** Resizes the canvas to be a square that fits on the screen with at least 20% vertical padding */
+function resizeCanvas() {
+    let c = document.querySelector('canvas')
+    c.width = c.parentElement.clientWidth
+    c.height = document.documentElement.clientHeight * 0.8
+    console.log(c.width, c.height)
+    if (c.width > c.height) c.width = c.height
+    else c.height = c.width
+}
+
+/**
+ * Initializes WebGL and event handlers after page is fully loaded.
+ * This example uses only `gl.clear` so it doesn't need any shaders, etc;
+ * any real program would initialize models, shaders, and programs for each
+ * display and store them for future use before calling `radioChanged` and
+ * thus initializing the render.
+ */
+//window.addEventListener('load',setup)
+
+
+async function setup(event) {
+    resizeCanvas()
+    window.gl = document.querySelector('canvas').getContext('webgl2')
+    let vs = await fetch('vertex1.glsl').then(res => res.text())
+    let vs2 = await fetch('vertex2.glsl').then(res => res.text())
+    let vs3 = await fetch('vertex3.glsl').then(res => res.text())
+    let fs = await fetch('fragment1.glsl').then(res => res.text())
+    let fs3 = await fetch('fragment3.glsl').then(res => res.text())
+    compileAndLinkGLSL(vs,fs,"p1")
+    compileAndLinkGLSL(vs2,fs,"p2")
+    compileAndLinkGLSL(vs3,fs3,"p3")
+    let data = await fetch('geometry1.json').then(r=>r.json())
+    let data2 = await fetch('geometry2.json').then(r=>r.json())
+    let data3 = await fetch('geometry3.json').then(r=>r.json())
+    window.geom1 = setupGeomery(data,window["p1"])
+    window.geom2 = setupGeomery(data2,window["p2"])
+    window.geom3 = setupGeomery(data3,window["p3"])
+    //requestAnimationFrame(draw)
+    window.p=m4perspNegZ(0.1,10,1.5,300,300)
+    window.v=m4view([1,2,2],[0,0,0],[0,1,0])
+    document.querySelectorAll('input[name="example"]').forEach(elem => {
+        elem.addEventListener('change', radioChanged)
+    })
+    radioChanged()
+    //<br/>
+    //<label><input type="radio" name="example" value="1" />Option 2: A solid fill of Illini Blue</label>
+    //<br/>
+    //<label><input type="radio" name="example" value="2" />Option 3: Canvas</label>
+    //<br/>
+}
+
+window.addEventListener('load',setup)
+</script>
+</head>
+<body>
+<label><input type="radio" name="example" value="1" checked />Option 1: A solid fill of Illini Orange</label>
+
+<canvas width="300" height="300"></canvas>
+</body>
+</html>
