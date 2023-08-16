@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CS 418 Terrain project</title>
+    <script src="scene-option-tree.js"></script><!-- handles controls -->
+
+
+<script>// configures controls
+/**
+ * Modify this object to chose what options you want in the control pane.
+ * Top-level entries become top-section radio buttons.
+ * Nested entries become lower-section inputs of various types.
+ */
+var controlOptions =
+  {"terrain":
+    {"label":"Required: Faulting-method terrain"
+    ,"options":
+      {"resolution":{"type":"number","default":100,"label":"Grid size"}
+      ,"slices":{"type":"number","default":100,"label":"Fractures"}
+      }
+    }
+  }
+</script>
+
+
+<script>// Placeholder script; edit or move to separate file
+const IlliniBlue = new Float32Array([0.075, 0.16, 0.292, 1])
+
+/**
+ * Draw one frame
+ */
+function draw() {
+    gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+}
+
+/**
+ * Resizes the canvas to completely fill the screen
+ */
+function fillScreen() {
+    let canvas = document.querySelector('canvas')
+    document.body.style.margin = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.width = canvas.clientWidth
+    canvas.height = canvas.clientHeight
+    canvas.style.width = ''
+    canvas.style.height = ''
+    // to do: update aspect ratio of projection matrix here
+    if (window.gl) {
+        gl.viewport(0,0, canvas.width, canvas.height)
+        draw()
+    }
+}
+
+/**
+ * Compile, link, other option-independent setup
+ */
+async function setup(event) {
+    window.gl = document.querySelector('canvas').getContext('webgl2',
+        // optional configuration object: see https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+        {antialias: false, depth:true, preserveDrawingBuffer:true}
+    )
+    // to do: more setup here
+    fillScreen()
+    resizeCanvas()
+    window.gl = document.querySelector('canvas').getContext('webgl2')
+    let vs = await fetch('vertex1.glsl').then(res => res.text())
+    let vs2 = await fetch('vertex2.glsl').then(res => res.text())
+    let vs3 = await fetch('vertex3.glsl').then(res => res.text())
+    let fs = await fetch('fragment1.glsl').then(res => res.text())
+    let fs3 = await fetch('fragment3.glsl').then(res => res.text())
+    compileAndLinkGLSL(vs,fs,"p1")
+    compileAndLinkGLSL(vs2,fs,"p2")
+    compileAndLinkGLSL(vs3,fs3,"p3")
+    let data = await fetch('geometry1.json').then(r=>r.json())
+    let data2 = await fetch('geometry2.json').then(r=>r.json())
+    let data3 = await fetch('geometry3.json').then(r=>r.json())
+    window.geom1 = setupGeomery(data,window["p1"])
+    window.geom2 = setupGeomery(data2,window["p2"])
+    window.geom3 = setupGeomery(data3,window["p3"])
+    //requestAnimationFrame(draw)
+    window.p=m4perspNegZ(0.1,10,1.5,300,300)
+    window.v=m4view([1,2,2],[0,0,0],[0,1,0])
+    document.querySelectorAll('input[name="example"]').forEach(elem => {
+        elem.addEventListener('change', radioChanged)
+    })
+    radioChanged()
+}
+
+/**
+ * Generate geometry, render the scene
+ */
+async function setupScene(scene, options) {
+    console.log("To do: render",scene,"with options",options)
+}
+
+window.addEventListener('load', setup)
+window.addEventListener('resize', fillScreen)
+</script>
+
+
+
+<!-- DO NOT MODIFY anything below this line -->
+<style>
+    body { margin: 0; border: none; padding: 0; display: flex; }
+    .controls {
+        width: min(50%, 20em); padding: 1em;
+        flex: 0 0 min(50%, 20em);
+    }
+    .controls label { display: block; }
+    .display {
+        flex-grow: 1; height: 100vh;
+        line-height: 0rem;
+    }
+</style>
+</head>
+<body>
+    <div class="controls">
+        <form>
+        <div id="set1"></div>
+        <hr/>
+        <div id="set2"></div>
+        <hr/>
+        <input type="submit" value="Generate object"/>
+        </form>
+    </div>
+    <div class="display"><canvas width="500" height="500"></canvas></div>
+</body>
+</html>

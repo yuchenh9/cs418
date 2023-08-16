@@ -243,8 +243,8 @@ async function setup(event) {
     window.geom2 = setupGeomery(data2,window["p2"])
     window.geom3 = setupGeomery(data3,window["p3"])
     //requestAnimationFrame(draw)
-    window.p=m4perspNegZ(0.1,10,1.5,300,300)
-    window.v=m4view([1,2,2],[0,0,0],[0,1,0])
+    window.p=m4perspNegZ(0,1,0.5,300,300)
+    window.v=m4view([0,0,0],[0,0,0],[0,0,0])
     document.querySelectorAll('input[name="example"]').forEach(elem => {
         elem.addEventListener('change', radioChanged)
     })
@@ -265,7 +265,7 @@ window.addEventListener('load',setup)
 </head>
 <body>
     <br/>
-<label><input type="radio" name="example" value="1" checked />Option 1: A solid fill of Illini Orange</label>
+<label><input type="radio" name="example" value="2" checked />Option 1: A solid fill of Illini Orange</label>
 
 <canvas width="300" height="300"></canvas>
 </body>
