@@ -16,13 +16,16 @@ layout(location=1) in vec4 color;
 layout(location=2) in vec3 normal;
 out vec4 color2;
 out vec3 normal2;
+out vec3 spinning_normal2;
 uniform mat4 m;
 uniform mat4 v;
 uniform mat4 p;
 void main() {
-    gl_Position = p*v *m* position;
+    gl_Position = p*v * position;
     color2 = color;
-    normal2=normal;
+    normal2=vec3(normal.xy,-normal.z);
+    spinning_normal2=mat3(v)*mat3(m)*normal2;
+    
 }
 </script>
 
@@ -33,13 +36,30 @@ void main() {
 precision highp float;
 uniform vec4 color;
 uniform vec3 lightdir;
+
+uniform vec3 lightcolor;
+uniform vec3 halfway;
+
 out vec4 fragColor;
 in vec4 color2;
 in vec3 normal2;
+in vec3 spinning_normal2;
+
 void main() {
-    float lambert = dot(normalize(normal2), lightdir);
-    fragColor = vec4(color2.rgb * lambert*2.0, color2.a);
+    vec3 n = normalize(spinning_normal2);
+    float blinn = pow(max(dot(n, halfway), 0.0), 150.0);
+    
+    float lambert = dot(normalize(normal2), lightdir)*1.2;
+    //fragColor = vec4(vec3((0.6+0.4*(normal2.z))*5.0,(0.3*-0.3*(normal2.z))*5.0,(0.3*0.2*(normal2.z))*5.0)*lambert, color2.a);
+    if (normal2.z > 0.8) {
+        fragColor = vec4(vec3(0.2, 0.6, 0.1)*lambert+lightcolor * blinn,1.0); // green color
+    } else {
+        fragColor = vec4(vec3(0.6, 0.3, 0.3)*lambert,1.0);
+    }
 }
+// (0.2, 0.6, 0.1) z=1
+//(0.6, 0.3, 0.3)z=0
+//(-0.4,0.3,-0.2)
 </script>
 
 
@@ -157,6 +177,28 @@ function setupGeomery(geom) {
 
 <!-- All the other code in one big script element. -->
 <script>
+var camera_mov=[0,0,0]
+var camera_position=[1,2,3]
+var camera_direction=[0,0,0]
+document.addEventListener('keydown', function(event) {
+    var camera_moving_direction = [0, 0, 0];
+    if (event.key == 'w') {
+        camera_moving_direction = add(camera_moving_direction, [0, -1, 0]);
+    }
+    if (event.key == 's') {
+        camera_moving_direction = add(camera_moving_direction, [0, 1, 0]);
+    }
+    if (event.key == 'a') {
+        camera_moving_direction = add(camera_moving_direction, [-1, 0, 0]);
+    }
+    if (event.key == 'd') {
+        camera_moving_direction = add(camera_moving_direction, [1, 0, 0]);
+    }
+
+    camera_mov = normalize(camera_moving_direction);
+    console.log("camera_moving_direction", camera_moving_direction);
+    console.log("camera_mov", camera_mov);
+});
 var tetrahedron =
     {"triangles":
         [4,5,6
@@ -250,7 +292,7 @@ for (let y = 0; y < gridSize+1; y++) {
 for (let index = 0; index < faultNumber; index++) {
     let ran=getRandom(gridSize)
     for (let x = 0; x < gridSize+1; x++) {
-        for (let y = 0; y < gridSize; y++) {
+        for (let y = 0; y < gridSize+1; y++) {
             
             let i=y*(gridSize+1)+x
             let _a=subtractVectors([x,y,0],ran.point)
@@ -269,7 +311,7 @@ for (let index = 0; index < faultNumber; index++) {
 let max_z=0
 let min_z=0
 for (let x = 0; x < gridSize+1; x++) {
-    for (let y = 0; y < gridSize; y++) {
+    for (let y = 0; y < gridSize+1; y++) {
         
         let i=y*(gridSize+1)+x
         if (positions[i][2]<min_z){
@@ -283,7 +325,7 @@ for (let x = 0; x < gridSize+1; x++) {
         
 }
 for (let x = 0; x < gridSize+1; x++) {
-    for (let y = 0; y < gridSize; y++) {
+    for (let y = 0; y < gridSize+1; y++) {
         
         let i=y*(gridSize+1)+x
         positions[i][2]=(positions[i][2]-0.5*(max_z+min_z))/(max_z-min_z)
@@ -314,6 +356,56 @@ function addNormals() {
 
     return normals;
   }
+  function addNormals2() {
+    let normals = [];
+    
+    for (let y = 0; y < gridSize+1; y++) {
+        for (let x = 0; x < gridSize+1; x++) {
+            let width=gridSize+1
+            let height=gridSize+1
+            let i =y*width+x
+            let n=i-width
+            let nw=n-1
+            let ne=n+1
+            let s=i+width
+            let sw=s-1
+            let se=s+1
+            let w=i-1
+            let e=i+1
+            if(y==0){
+                n=i
+                nw=n-1
+                ne=n+1
+            } else if(y==gridSize){
+                s=i
+                sw=s-1
+                se=s+1
+            } 
+            if (x==0) {
+                nw=n
+                w=i
+                sw=s
+            } else if(x==gridSize){
+                ne=n
+                e=i
+                se=s
+            }
+            normals.push(
+                add(
+                    mul(cross(sub(positions[n],positions[s]),sub(positions[w],positions[e])),2/3),
+                    mul(cross(sub(positions[ne],positions[sw]),sub(positions[nw],positions[se])),1/3)
+                )
+            )
+        }
+        
+    }
+    for (let i = 0; i < normals.length; i++) {
+      normals[i] = normalize(normals[i]); // Assuming you have a function named normalize for normalization
+      console.log(mag(normals[i]));
+    }
+    return normals;
+  }
+
 
   let normals = addNormals();
   return {
@@ -323,6 +415,7 @@ function addNormals() {
     ,
   };
 }
+
 /** Draw one frame */
 function draw(seconds) {
     gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
@@ -331,16 +424,26 @@ function draw(seconds) {
     
     let todraw=window.terrain
     gl.bindVertexArray(todraw.vao)
-    
-    let v = m4view([2,4,6], [0,0,0], [0,0,1])
+    camera_position=add(camera_position,mul(camera_mov,1/10))
+    camera_direction=add(camera_direction,mul(camera_mov,1/10))
+    let v = m4view(camera_position,camera_direction, [0,0,1])
+    //console.log(add(mul([10,20,30],1/1),mul(camera_mov,seconds/10)))
     let m =m4mul(m4rotZ(seconds),m4scale(8, 8, 8))
     
+    let ld =  normalize([1,1,2])
+
     gl.uniform4fv(program.uniforms.color, IlliniOrange)
-    gl.uniform3fv(program.uniforms.lightdir, normalize([1,1,-1]))
+    gl.uniform3fv(program.uniforms.lightdir, normalize([1,1,2]))
     gl.uniformMatrix4fv(program.uniforms.m, false, m)
     gl.uniformMatrix4fv(program.uniforms.v, false, v)
     gl.uniformMatrix4fv(program.uniforms.p, false, p)
     
+
+    let h = normalize(add(ld, [0,1,0]))
+    gl.uniform3fv(program.uniforms.lightcolor, [1,1,1])
+    gl.uniform3fv(program.uniforms.halfway, h)
+
+
     gl.drawElements(todraw.mode, todraw.count, todraw.type, 0)
 
 
@@ -391,7 +494,7 @@ window.addEventListener('load', async (event) => {
     let fs = document.querySelector('#frag').textContent.trim()
     window.program = compileShader(vs,fs)
     gl.enable(gl.DEPTH_TEST)
-    let terrain=createJson(100,500)
+    let terrain=createJson(20,100)//specify
     window.terrain=setupGeomery(terrain)
     fillScreen()
     window.addEventListener('resize', fillScreen)
