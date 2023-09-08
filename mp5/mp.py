@@ -56,6 +56,27 @@ color=[1.0,1.0,1.0]
     #else:
     #   v1 d=tc-d3
     #result_list_to_append_to.append:d;sphere_index
+def collision_detection_only(ray,sphere_index):
+    ray_origin,ray_direction=ray
+    sphere_center=[sphere_xs[sphere_index],sphere_ys[sphere_index],sphere_zs[sphere_index]]
+    sphere_r=sphere_rs[sphere_index]
+    sphere_center=numpy.array(sphere_center)
+    ray_origin=numpy.array(ray_origin)
+    ray_direction=numpy.array(ray_direction)
+    #print(ray_direction)
+    d1=sphere_center-ray_origin
+    inside=numpy.dot(d1,d1)<sphere_r**2
+    tc=numpy.dot(d1,ray_direction)
+    if inside==False and tc<0:
+        #print("not shadowed")
+        return False
+    d2=ray_origin+numpy.dot(tc,ray_direction)-sphere_center
+    hit=(sphere_r**2-numpy.dot(d2,d2))>0
+    if hit==False:
+        #print("not shadowed")
+        return False
+    #print(f"collide with {sphere_index}")
+    return True
 def collision_detection(ray,sphere_index,toAppend):
     ray_origin,ray_direction=ray
     sphere_center=[sphere_xs[sphere_index],sphere_ys[sphere_index],sphere_zs[sphere_index]]
@@ -81,17 +102,32 @@ def collision_detection(ray,sphere_index,toAppend):
         d=tc-d3
     
     hit_position=ray_origin+ray_direction*d
-    normal=sphere_center-hit_position
+    normal=hit_position-sphere_center
     normal=normal/numpy.linalg.norm(normal)
     rgb=numpy.array([0,0,0])
     for sun_index in range(len(sun_xs)):
         sun_position=numpy.array([sun_xs[sun_index],sun_ys[sun_index],sun_zs[sun_index]])
-        light_direction=hit_position-sun_position
+        light_direction=sun_position
         light_direction=light_direction/numpy.linalg.norm(light_direction)
+        
+        light_position_and_direction=[hit_position,light_direction]
+        shadowed=False
+        for _sphere_index in range(len(sphere_xs)):
+            if _sphere_index==sphere_index:
+                continue
+            #print(f'sphere {sphere_index}')
+            shadowed=shadowed or collision_detection_only(light_position_and_direction,_sphere_index)
+            
+        if shadowed:
+            #print(f'sphere{sphere_index} is shadowed')
+            continue
+        #else:
+            #print(f'sphere{sphere_index} not shadowed')
         normal_dot_view=numpy.dot(normal,light_direction)
         rgb=rgb+numpy.array([sun_rgbs[sun_index][0]*normal_dot_view*sphere_rgbs[sphere_index][0],
                              sun_rgbs[sun_index][1]*normal_dot_view*sphere_rgbs[sphere_index][1],
                              sun_rgbs[sun_index][2]*normal_dot_view*sphere_rgbs[sphere_index][2]])
+        #rgb=rgb+numpy.array([normal_dot_view,normal_dot_view,normal_dot_view])
         #print(normal_dot_view)
     toAppend.append([sphere_index,d,rgb])
     #print(normal_dot_view)
@@ -130,6 +166,7 @@ with open(input_file, 'r') as file:
             sphere_zs.append(sphere_z)
             sphere_rs.append(sphere_r)
             sphere_rgbs.append(color)
+            #print(sphere_z)
         if newwords[0]=='sun' :
             sun_x=float(newwords[1])
             sun_y=float(newwords[2])
@@ -169,7 +206,7 @@ with open(input_file, 'r') as file:
                 image.im.putpixel((x,y),(int(rgb[0]*255),int(rgb[1]*255),int(rgb[2]*255),255))
             #larger than zero, least d1 sphere
             #
-    
+    #print([sun_xs[-1],sun_ys[-1],sun_zs[-1]])
     image.save('bug.png')
 #except BaseException: 
 #    print(BaseException)
