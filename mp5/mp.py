@@ -25,6 +25,8 @@ def clamp(a):
     if a<0:
         return 0
     return a
+def getProject(a,b):
+    return (numpy.dot(a, b) / numpy.dot(b, b)) * b
 sun=[-1,-1,-1]
 png_width=-1
 png_height=-1
@@ -39,6 +41,30 @@ sun_xs=[]
 sun_ys=[]
 sun_zs=[]
 color=[1.0,1.0,1.0]
+plane_normals=[]
+plane_points=[]
+plane_rgbs=[]
+xyz_s=[]
+tris=[]
+tri_rgbs=[]
+tri_normals=[]
+tri_points=[]
+tris_edge_normals=[]
+def getBarycentric_0f_edge(point,tri_index,i):
+    point=numpy.array(point)
+    normal=tris_edge_normals[tri_index][i]
+    unprojected_point_edge=point-numpy.array(xyz_s[tris[tri_index][(i+1)%3]])
+    Bary=numpy.dot(unprojected_point_edge,normal)/numpy.dot(normal,normal)
+    return Bary
+def getBarycentric_0f_tri(point,tri_index):
+    Barys=[]
+    for i in range(3):
+        Barys.append(getBarycentric_0f_edge(point,tri_index,i))
+def tri_collision_detection():
+    toAppend=[]
+    for tri_index in range(len(tri_normals)):
+        planes_collision_detection()
+    planes_collision_detection
 ##collision_detection(ray,each_sphere,result_list_to_append_to)：
     #v3 d1=(sphere_center-ray_origin)
     #inside=d1*(dot)d1 < sphere_r**2
@@ -56,6 +82,87 @@ color=[1.0,1.0,1.0]
     #else:
     #   v1 d=tc-d3
     #result_list_to_append_to.append:d;sphere_index
+def planes_collision_detection(ray,plane_index,toAppend):
+    ray_origin,ray_direction=ray
+    ray_direction=ray_direction/numpy.linalg.norm(ray_direction)
+    ray_origin=numpy.array(ray_origin)
+    _normal=plane_normals[plane_index]
+    #print(ray_direction)
+    if numpy.dot(ray_direction,_normal)==0:
+        print(f'zer0!{ray_direction}*{_normal}')
+        return
+    t=numpy.dot((numpy.array(plane_points[plane_index])-numpy.array(ray_origin)),_normal)/numpy.dot(ray_direction,_normal)
+    if t<0:
+        return
+    hit_position=ray_origin+t*ray_direction
+    rgb=[0,0,0]
+    for sun_index in range(len(sun_xs)):
+        sun_position=numpy.array([sun_xs[sun_index],sun_ys[sun_index],sun_zs[sun_index]])
+        light_direction=sun_position
+        light_direction=light_direction/numpy.linalg.norm(light_direction)
+        
+        light_position_and_direction=[hit_position,light_direction]
+        shadowed=False
+        for _sphere_index in range(len(sphere_xs)):
+            shadowed=shadowed or collision_detection_only(light_position_and_direction,_sphere_index)
+            
+        if shadowed:
+            #print(f'sphere{sphere_index} is shadowed')
+            continue
+        #else:
+            #print(f'sphere{sphere_index} not shadowed')
+        normal_dot_view=numpy.dot(_normal,light_direction)
+        rgb=rgb+numpy.array([sun_rgbs[sun_index][0]*normal_dot_view*plane_rgbs[plane_index][0],
+                             sun_rgbs[sun_index][1]*normal_dot_view*plane_rgbs[plane_index][1],
+                             sun_rgbs[sun_index][2]*normal_dot_view*plane_rgbs[plane_index][2]])
+        #rgb=rgb+numpy.array([normal_dot_view,normal_dot_view,normal_dot_view])
+        #print(normal_dot_view)
+    toAppend.append([plane_index,t,rgb])
+def tris_collision_detection(ray,tri_index,toAppend):
+    ray_origin,ray_direction=ray
+    ray_direction=ray_direction/numpy.linalg.norm(ray_direction)
+    ray_origin=numpy.array(ray_origin)
+    _normal=tri_normals[tri_index]
+    #print(ray_direction)
+    if numpy.dot(ray_direction,_normal)==0:
+        #print(f'zer0!{ray_direction}*{_normal}')
+        return
+    t=numpy.dot((numpy.array(tri_points[tri_index])-numpy.array(ray_origin)),_normal)/numpy.dot(ray_direction,_normal)
+    if t<0:
+        return
+    hit_position=ray_origin+t*ray_direction
+    Barys=[]
+    Bary_sums=0
+    for i in range(3):
+        v=getBarycentric_0f_edge(hit_position,tri_index,i)
+        Bary_sums=Bary_sums+v
+        Barys.append(v)
+    if Bary_sums>1:
+        print(Bary_sums)
+        return
+    rgb=[0,0,0]
+    for sun_index in range(len(sun_xs)):
+        sun_position=numpy.array([sun_xs[sun_index],sun_ys[sun_index],sun_zs[sun_index]])
+        light_direction=sun_position
+        light_direction=light_direction/numpy.linalg.norm(light_direction)
+        
+        light_position_and_direction=[hit_position,light_direction]
+        shadowed=False
+        for _sphere_index in range(len(sphere_xs)):
+            shadowed=shadowed or collision_detection_only(light_position_and_direction,_sphere_index)
+            
+        if shadowed:
+            #print(f'sphere{sphere_index} is shadowed')
+            continue
+        #else:
+            #print(f'sphere{sphere_index} not shadowed')
+        normal_dot_view=numpy.dot(_normal,light_direction)
+        rgb=rgb+numpy.array([sun_rgbs[sun_index][0]*normal_dot_view*tri_rgbs[tri_index][0],
+                             sun_rgbs[sun_index][1]*normal_dot_view*tri_rgbs[tri_index][1],
+                             sun_rgbs[sun_index][2]*normal_dot_view*tri_rgbs[tri_index][2]])
+        #rgb=rgb+numpy.array([normal_dot_view,normal_dot_view,normal_dot_view])
+        #print(normal_dot_view)
+    toAppend.append([tri_index,t,rgb])
 def collision_detection_only(ray,sphere_index):
     ray_origin,ray_direction=ray
     sphere_center=[sphere_xs[sphere_index],sphere_ys[sphere_index],sphere_zs[sphere_index]]
@@ -150,6 +257,42 @@ with open(input_file, 'r') as file:
         newwords = [word.strip() for word in newwords]
         if len(newwords)==0:
             continue
+        if newwords[0]=='plane':
+            plane_a=float(newwords[1])
+            if plane_a==0:
+                plane_a=0.000001
+            plane_b=float(newwords[2])
+            plane_c=float(newwords[3])
+            plane_d=float(newwords[4])
+            plane_normal=numpy.array([plane_a,plane_b,plane_c])
+            plane_normal=plane_normal/numpy.linalg.norm(plane_normal)
+            plane_point=numpy.array([-1*plane_d/plane_a,0,0])
+            plane_normals.append(plane_normal)
+            plane_points.append(plane_point)
+            plane_rgbs.append(color)
+        if newwords[0]=='xyz':
+            xyz_s.append([float(newwords[1]),float(newwords[2]),float(newwords[3])])
+        if newwords[0]=='tri':
+            tri=[int(newwords[1]),int(newwords[2]),int(newwords[3])]
+            tri=([i-1 if i>=0 else len(xyz_s)+i for i in tri])
+            tris.append(tri)
+            tri_rgbs.append(color)
+            _normal=numpy.cross(numpy.array(xyz_s[tri[1]])-numpy.array(xyz_s[tri[0]]),numpy.array(xyz_s[tri[2]])-numpy.array(xyz_s[tri[0]]))
+            _normal=_normal/numpy.linalg.norm(_normal)
+            tri_normals.append(_normal)
+            tri_points.append(tri[0])
+            edge_normals=[]
+            for i in range(3):
+                a=xyz_s[tri[i]]
+                b=xyz_s[tri[(i+1)%3]]
+                c=xyz_s[tri[(i+2)%3]]
+                edge_normal=numpy.cross(numpy.array(c)-numpy.array(b),_normal)
+                edge_normal=edge_normal/numpy.linalg.norm(edge_normal)
+                edge2=numpy.array(a)-numpy.array(b)
+                edge2_projected_on_edge_normal=getProject(edge2,edge_normal)
+                edge_normals.append(edge2_projected_on_edge_normal)
+            tris_edge_normals.append(edge_normals)
+            #print(edge_normals)
         if newwords[0]=='png' :
             png_width=int(newwords[1])
             png_height=int(newwords[2])
@@ -191,8 +334,13 @@ with open(input_file, 'r') as file:
             for sphere_index in range(len(sphere_xs)):
                 ray=[ray_origin,ray_direction]
                 collision_detection(ray,sphere_index,collision_list)
-
-            #
+            for plane_index in range(len(plane_normals)):
+                ray=[ray_origin,ray_direction]
+                planes_collision_detection(ray,plane_index,collision_list)
+            for tri_index in range(len(tri_normals)):
+                ray=[ray_origin,ray_direction]
+                tris_collision_detection(ray,tri_index,collision_list)
+            
                 #print(collision_list)
             
             if collision_list!=[]:
@@ -207,6 +355,8 @@ with open(input_file, 'r') as file:
             #larger than zero, least d1 sphere
             #
     #print([sun_xs[-1],sun_ys[-1],sun_zs[-1]])
+    #print(tris)
+    #print(xyz_s)
     image.save('bug.png')
 #except BaseException: 
 #    print(BaseException)

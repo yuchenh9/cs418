@@ -1,13 +1,17 @@
-png 120 120 shadow-suns.png
+png 100 100 tri.png
 
-color 1 0 1
-sun 0 2 1
-color 0 1 1
-sun .2 1 1
+xyz 0 -.6 -1
+sphere 0 -.6 -1 0.1
+xyz -.7 .3 -1.2
+sphere -.7 .3 -1.2 0.1
+xyz .8 .5 -0.9
+sphere .8 .5 -0.9 0.1
+
+tri 1 2 3
+
+xyz -.7 -.7 -.8
+color 1 0.5 0
+tri 1 2 4
 
 color 1 1 1
-sphere 0 .5 -1 0.2
-color 0.5 1 0.5
-sphere -.3 0 -1.4 0.3
-color 1 0 1
-sphere 0 -2 -2.5 1.3
+sun -1 -1 2
